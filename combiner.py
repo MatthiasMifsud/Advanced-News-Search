@@ -64,13 +64,13 @@ class NewsSearchApp:
 
     def slider_callback(self, value):
         self.threshold_value = float(value)
-        self.threshold_label.configure(text=f"Threshold = {self.threshold_value:.2f}")
+        self.threshold_label.configure(text=f"FallbackThreshold = {self.threshold_value:.2f}")
 
     def create_slider(self):
         self.threshold_slider = ctk.CTkSlider(self.sliderFrame, from_=0, to=1, command=self.slider_callback)
         self.threshold_slider.pack()
 
-        self.threshold_label = ctk.CTkLabel(self.sliderFrame, text=f"Threshold = {self.threshold_value:.2f}")
+        self.threshold_label = ctk.CTkLabel(self.sliderFrame, text=f"Fallback Threshold = {self.threshold_value:.2f}")
         self.threshold_label.pack()
 
     def create_outputbox(self):
@@ -93,9 +93,9 @@ class NewsSearchApp:
         for num, similarity in enumerate(cos_sim_matrix[0]):
             # Compare with both adaptive threshold and user-adjusted slider threshold
             if similarity > threshold and similarity > self.threshold_value:
-                link = list(texts.keys())[num]
+                self.link = list(texts.keys())[num]
                 self.outputbox.insert("end", "--------------------------------------------------------\n")
-                self.outputbox.insert("end", f"Link: {link} | Similarity: {similarity:.4f}\n")
+                self.outputbox.insert("end", f"Link: {self.link} | Similarity: {similarity:.4f}\n")
                 self.outputbox.insert("end", "--------------------------------------------------------\n\n")
         self.outputbox.configure(state="disabled")
     
@@ -126,8 +126,8 @@ class NewsSearchApp:
             self.message.configure(text="No articles were fetched to compare with user text.", text_color="red")
             return
 
-        self.message.configure(text=f"Extracted {len(processed_texts)} articles.", text_color="green")
         self.similarity(processed_texts, processed_user_text)
+        self.message.configure(text=f"Found {len(self.link)} Links from {len(processed_texts)} articles.", text_color="green")
 
 
 # Example initialization:
