@@ -62,42 +62,70 @@ class NewsSearchApp:
         search_button = ctk.CTkButton(self.buttonFrame, text="Search", command=self.runner)
         search_button.grid(row=0, column=0, padx=5, pady=5)
 
+        clear_button = ctk.CTkButton(self.buttonFrame, text="Clear", command=self.clear_all)
+        clear_button.grid(row=0, column=1, padx=5, pady=5)
+
     def slider_callback(self, value):
         self.threshold_value = float(value)
-        self.threshold_label.configure(text=f"FallbackThreshold = {self.threshold_value:.2f}")
+        self.threshold_label.configure(text=f"Adjust Fallback Threshold | {int(self.threshold_value * 100)}%")
 
     def create_slider(self):
         self.threshold_slider = ctk.CTkSlider(self.sliderFrame, from_=0, to=1, command=self.slider_callback)
         self.threshold_slider.pack()
 
-        self.threshold_label = ctk.CTkLabel(self.sliderFrame, text=f"Fallback Threshold = {self.threshold_value:.2f}")
+        self.threshold_label = ctk.CTkLabel(self.sliderFrame, text=f"Adjust Fallback Threshold | {int(self.threshold_value * 100)}%")
         self.threshold_label.pack()
 
     def create_outputbox(self):
         self.outputbox = ctk.CTkTextbox(self.outputFrame, width=800, height=300, wrap="word")
         self.outputbox.pack(pady=10, padx=10)
 
-    def similarity(self, texts, user_text):
+        self.outputbox.tag_config("green", foreground="green")
+        self.outputbox.tag_config("orange", foreground="orange")
+        self.outputbox.tag_config("gray", foreground="gray")
 
+    def clear_all(self):
+        self.textbox.delete("1.0", "end")
+        self.outputbox.configure(state="normal")
+        self.outputbox.delete("1.0", "end")
+        self.outputbox.configure(state="disabled")
+        self.message.configure(text="")
+
+    def similarity(self, texts, user_text):
         corpus = list(texts.values())
         corpus.append(user_text)
 
         tfid_matrix = self.vectorizer.fit_transform(corpus)
         cos_sim_matrix = cosine_similarity(tfid_matrix[-1], tfid_matrix[:-1])
 
-        threshold = np.percentile(cos_sim_matrix, 90)  # Calculate adaptive threshold
+        threshold = max(np.percentile(cos_sim_matrix, 90), 0.1)
+
         self.outputbox.configure(state="normal")
-        self.outputbox.delete("1.0", "end")  # Clear previous output
-        self.outputbox.insert("end", f"Fallback Threshold: {self.threshold_value:.4f} |  Threshold: {threshold:.4f}\n\n")
+        self.outputbox.delete("1.0", "end")
+        self.outputbox.insert("end", f"Fallback Threshold: {int(self.threshold_value * 100)}%   |   Threshold: {int(threshold * 100)}%\n\n")
+
+        matched_links = []
 
         for num, similarity in enumerate(cos_sim_matrix[0]):
-            # Compare with both adaptive threshold and user-adjusted slider threshold
             if similarity > threshold and similarity > self.threshold_value:
-                self.link = list(texts.keys())[num]
+                link = list(texts.keys())[num]
+                matched_links.append(link)
+
+                # Color tag
+                if similarity > 0.30:
+                    tag = "green"
+                elif similarity > 0.15:
+                    tag = "orange"
+                else:
+                    tag = "gray"
+
                 self.outputbox.insert("end", "--------------------------------------------------------\n")
-                self.outputbox.insert("end", f"Link: {self.link} | Similarity: {similarity:.4f}\n")
+                self.outputbox.insert("end", f"Link: {link}\n", tag)
+                self.outputbox.insert("end", f"Similarity: {int(similarity * 100)}%\n", tag)
                 self.outputbox.insert("end", "--------------------------------------------------------\n\n")
+
         self.outputbox.configure(state="disabled")
+        return matched_links
     
     def runner(self):
         self.news_api.parallel_news_fetching()  
@@ -105,13 +133,13 @@ class NewsSearchApp:
         try:
             user_input = self.textbox.get("1.0", "end-1c").strip()
             if not user_input:
-                self.message.configure(text="Please enter a text", text_color="red")
+                self.message.configure(text="Please enter something!", text_color="red")
                 return
 
             processed_user_text = self.text_processor.preprocessing(user_input)
 
         except Exception as e:
-            self.message.configure(text=f"Failed to load/process the text. Error: {e}", text_color="red")
+            self.message.configure(text=f"Failed to load/process your description! Error: {e}", text_color="red")
             return
 
         processed_texts = {}
@@ -123,9 +151,12 @@ class NewsSearchApp:
             processed_texts[article['url']] = self.text_processor.preprocessing(combined_text)
 
         if not processed_texts:
-            self.message.configure(text="No articles were fetched to compare with user text.", text_color="red")
+            self.message.configure(text="No articles matched your description!", text_color="red")
             return
 
-        self.similarity(processed_texts, processed_user_text)
-        self.message.configure(text=f"Found {len(self.link)} Links from {len(processed_texts)} articles.", text_color="green")
+        matched_links = self.similarity(processed_texts, processed_user_text)
+        self.message.configure(
+            text=f"Found {len(matched_links)} out of {len(processed_texts)} articles which match your description!",
+            text_color="green"
+        )
 
