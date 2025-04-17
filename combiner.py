@@ -22,7 +22,7 @@ class NewsSearchApp:
 
         self.root = ctk.CTk()
         self.root.geometry("1000x1000")
-        self.root.title("News Search")
+        self.root.title("News Search Engine")
 
         self.create_frames()
     
@@ -129,6 +129,3 @@ class NewsSearchApp:
         self.similarity(processed_texts, processed_user_text)
         self.message.configure(text=f"Found {len(self.link)} Links from {len(processed_texts)} articles.", text_color="green")
 
-
-# Example initialization:
-# app = NewsSearchApp(api_key="your_api_key", source_list=["bbc-news", "cnn"])
